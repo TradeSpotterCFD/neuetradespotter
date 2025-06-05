@@ -161,30 +161,47 @@ export default async function BrokerDetailPage({ params }: BrokerDetailPageProps
   const currentTranslation = broker.translations?.en || {};
   const brokerName = broker.name || 'eToro';
 
-  // Simple feature list - no complex processing
-  const defaultFeatures = ['Mobile Compatible', 'Demo Account', 'Fast Payouts', 'Regulated and Secure'];
+  // EXTENSIVE DEBUG - Check what's actually happening
+  console.log('=== BROKER DEBUG START ===');
+  console.log('Raw broker object:', broker);
+  console.log('broker.company:', broker.company);
+  console.log('broker.max_leverage:', broker.max_leverage);
+  console.log('typeof max_leverage:', typeof broker.max_leverage);
+  console.log('Is max_leverage null?', broker.max_leverage === null);
+  console.log('Is max_leverage undefined?', broker.max_leverage === undefined);
+  console.log('Is max_leverage empty string?', broker.max_leverage === '');
+  console.log('=== BROKER DEBUG END ===');
 
-  // Basic data with fallbacks
+  // NO FALLBACKS AT ALL - Show exactly what's in database
   const brokerData = {
-    name: brokerName,
-    company: broker.company || 'eToro Group Ltd',
-    headquarters: broker.headquarters || 'Tel Aviv, Limassol, London',
-    founded_year: broker.founded_year || '2007',
-    min_deposit: broker.min_deposit || '50',
-    max_leverage: broker.max_leverage || '1:30',
-    spreads_from: broker.spreads_from || '1 pip',
-    rating: broker.rating || '4.8',
-    regulation: broker.regulation || 'BaFin, AMF, CONSOB +21',
-    fund_security: broker.fund_security || 'ICF €20,000 in Europe',
-    trading_platforms: broker.trading_platforms || 'eToro WebTrader',
-    customer_support: broker.customer_support || 'Live-Chat 24/5, Support-Tickets',
-    user_base: broker.user_base || '3.5 million active traders',
-    withdrawal_fees: broker.withdrawal_fees || '5 USD per payout',
-    deposit_methods: broker.deposit_methods || 'Neteller, Skrill, MasterCard +2',
-    website_url: broker.website_url || '#',
-    bonus: broker.bonus || 'Welcome Bonus Available',
-    risk_note: broker.risk_note || 'Trading involves risk. Your capital may be at risk.'
+    name: broker.name,
+    company: broker.company, // Should show "eToro Group" not "eToro Group Ltd"
+    headquarters: broker.headquarters,
+    founded_year: broker.founded_year,
+    min_deposit: broker.min_deposit,
+    max_leverage: broker.max_leverage, // Should be null/empty and show as empty
+    spreads_from: broker.spreads_from,
+    rating: broker.rating,
+    regulation: broker.regulation,
+    fund_security: broker.fund_security,
+    trading_platforms: broker.trading_platforms,
+    customer_support: broker.customer_support,
+    user_base: broker.user_base,
+    withdrawal_fees: broker.withdrawal_fees,
+    deposit_methods: broker.deposit_methods,
+    website_url: broker.website_url,
+    bonus: broker.bonus,
+    risk_note: broker.risk_note
   };
+
+  const depositMethodsArray = typeof brokerData.deposit_methods === 'string'
+    ? brokerData.deposit_methods.split(',').map(m => m.trim()).filter(Boolean)
+    : Array.isArray(brokerData.deposit_methods)
+    ? brokerData.deposit_methods
+    : [];
+
+  const depositMethodsDisplay = depositMethodsArray.slice(0, 4).join(', ') +
+    (depositMethodsArray.length > 4 ? ` +${depositMethodsArray.length - 4}` : '');
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -269,54 +286,55 @@ export default async function BrokerDetailPage({ params }: BrokerDetailPageProps
       {/* At a Glance Section */}
       <section className="py-16 bg-white">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col lg:flex-row gap-12">
+        <div className="flex flex-col lg:flex-row gap-12">
             {/* Left - At a Glance Details */}
-            <div className="lg:w-2/3">
+            <div className="lg:w-2/3 lg:pr-6 lg:border-r lg:border-gray-300">
               <h2 className="text-3xl font-bold text-gray-800 mb-8">{brokerData.name} at a Glance</h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Company */}
+
+              <div className="border border-gray-200 rounded-lg shadow-md p-6 relative grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="hidden md:block absolute inset-y-0 left-1/2 w-px bg-gray-200" />
+                {/* Company - DIRECT FROM DB */}
                 <div className="flex items-start space-x-3">
                   <Building className="h-6 w-6 text-blue-600 mt-1 flex-shrink-0" />
                   <div>
                     <div className="font-semibold text-gray-700">Company:</div>
-                    <div className="text-gray-600">{brokerData.company}</div>
+                    <div className="text-gray-600">{broker.company || 'No company data'}</div>
                   </div>
                 </div>
 
-                {/* Headquarters */}
+                {/* Headquarters - DIRECT FROM DB */}
                 <div className="flex items-start space-x-3">
                   <MapPin className="h-6 w-6 text-red-600 mt-1 flex-shrink-0" />
                   <div>
                     <div className="font-semibold text-gray-700">Headquarters:</div>
-                    <div className="text-gray-600">{brokerData.headquarters}</div>
+                    <div className="text-gray-600">{broker.headquarters || 'No headquarters data'}</div>
                   </div>
                 </div>
 
-                {/* Founded Year */}
+                {/* Founded Year - DIRECT FROM DB */}
                 <div className="flex items-start space-x-3">
                   <Calendar className="h-6 w-6 text-purple-600 mt-1 flex-shrink-0" />
                   <div>
                     <div className="font-semibold text-gray-700">Online since:</div>
-                    <div className="text-gray-600">{brokerData.founded_year}</div>
+                    <div className="text-gray-600">{broker.founded_year || 'No founding year data'}</div>
                   </div>
                 </div>
 
-                {/* Min Deposit */}
+                {/* Min Deposit - DIRECT FROM DB */}
                 <div className="flex items-start space-x-3">
                   <DollarSign className="h-6 w-6 text-green-600 mt-1 flex-shrink-0" />
                   <div>
                     <div className="font-semibold text-gray-700">Min. Deposit:</div>
-                    <div className="text-gray-600">${brokerData.min_deposit}</div>
+                    <div className="text-gray-600">${broker.min_deposit || 'No min deposit data'}</div>
                   </div>
                 </div>
 
-                {/* Max Leverage */}
+                {/* Max Leverage - DIRECT FROM DATABASE */}
                 <div className="flex items-start space-x-3">
                   <TrendingUp className="h-6 w-6 text-orange-600 mt-1 flex-shrink-0" />
                   <div>
                     <div className="font-semibold text-gray-700">Max. Leverage:</div>
-                    <div className="text-gray-600">{brokerData.max_leverage}</div>
+                    <div className="text-gray-600">{broker.max_leverage || 'No leverage data'}</div>
                   </div>
                 </div>
 
@@ -347,7 +365,7 @@ export default async function BrokerDetailPage({ params }: BrokerDetailPageProps
                   </div>
                 </div>
 
-                {/* Withdrawal Fees */}
+                {/* Withdrawal Fees - FIXED DUPLICATE */}
                 <div className="flex items-start space-x-3">
                   <Banknote className="h-6 w-6 text-red-600 mt-1 flex-shrink-0" />
                   <div>
