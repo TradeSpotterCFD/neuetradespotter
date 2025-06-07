@@ -1,76 +1,29 @@
+// src/components/BrokerCard.tsx - Updated version with Risk Note function
 import Link from 'next/link';
 import Image from 'next/image';
-import { Star, CheckCircle2, ShieldCheck } from 'lucide-react'; // Import necessary icons
+import { Star, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { getRiskWarningSync } from '@/lib/riskWarning'; // NEU importieren
 
 // Interface for the props the BrokerCard component expects
 interface BrokerCardProps {
-  id: number | string; // Can be number or string depending on source
+  id: number | string;
   name: string;
   slug: string;
   logo_url: string | null;
   rating: number;
   bonus?: string | null;
-  features?: string | string[] | null; // Can be string or array
-  regulation?: string | null; // Regulation string
-  risk_note?: string | null;
-  search_result_text?: string | null; // Short description text
+  features?: string | string[] | null;
+  regulation?: string | null;
+  risk_note?: string | number | null; // Updated to accept number or string
+  search_result_text?: string | null;
 }
-
-// Helper function to render stars (can be moved to utils if used elsewhere)
-const renderStars = (rating: number) => {
-    const stars = [];
-    const fullStars = Math.floor(rating);
-    const halfStar = rating % 1 >= 0.5;
-    for (let i = 0; i < 5; i++) {
-      if (i < fullStars) {
-        stars.push(<Star key={`full-${i}`} className="h-4 w-4 text-yellow-400 fill-yellow-400" />);
-      } else if (i === fullStars && halfStar) {
-        stars.push(<Star key={`half-${i}`} className="h-4 w-4 text-yellow-400 fill-yellow-200" />); // Example half star
-      } else {
-        stars.push(<Star key={`empty-${i}`} className="h-4 w-4 text-gray-300" />);
-      }
-    }
-    return <div className="flex items-center">{stars}<span className="ml-1 text-xs text-gray-600">({rating ? rating.toFixed(1) : 'N/A'})</span></div>;
-};
-
-// Helper function to render licenses (Regulation)
-const renderLicenses = (regulationString: string | undefined | null) => {
-    if (!regulationString) return <span className="text-gray-500 text-sm">N/A</span>;
-    const licenses = regulationString.split(',').map(s => s.trim()).filter(Boolean);
-    const count = licenses.length;
-    const displayLimit = 5;
-    if (count === 0) return <span className="text-gray-500 text-sm">N/A</span>;
-    const displayedLicenses = licenses.slice(0, displayLimit).join(', ');
-    const remainingCount = count - displayLimit;
-    return (
-      <span className="text-gray-500 text-sm">
-        Licensed by {displayedLicenses}
-        {remainingCount > 0 && ` +${remainingCount}`}
-      </span>
-    );
-};
-
-// Helper function to render features
-const renderFeatures = (features: string | string[] | undefined | null) => {
-    let featuresArray: string[] = [];
-    if (typeof features === 'string') {
-      featuresArray = features.split(',').map(s => s.trim()).filter(Boolean);
-    } else if (Array.isArray(features)) {
-      featuresArray = features;
-    }
-    if (featuresArray.length === 0) return null;
-    return featuresArray.slice(0, 4).map((feature, index) => (
-      <div key={index} className="flex items-center">
-        <CheckCircle2 className="h-4 w-4 mr-1 text-green-600 flex-shrink-0" />
-        <span className="text-gray-700 text-sm">{feature}</span>
-      </div>
-    ));
-};
-
 
 export const BrokerCard: React.FC<BrokerCardProps> = ({
   id, name, slug, logo_url, rating, bonus, features, regulation, risk_note, search_result_text
 }) => {
+  // NEU: Risk Warning aus der Datenbank holen (synchron für Client-Komponenten)
+  const riskWarning = getRiskWarningSync(risk_note, 'cfd', 'en');
+
   return (
     <div key={id} className="bg-white rounded-lg shadow-md overflow-hidden">
       <div className="p-6 flex flex-col md:flex-row">
@@ -81,8 +34,8 @@ export const BrokerCard: React.FC<BrokerCardProps> = ({
               <Image
                 src={logo_url}
                 alt={`${name} Logo`}
-                layout="fill"
-                objectFit="contain"
+                fill
+                style={{ objectFit: 'contain' }}
                 unoptimized={process.env.NODE_ENV === 'development'}
               />
             ) : (
@@ -110,13 +63,11 @@ export const BrokerCard: React.FC<BrokerCardProps> = ({
           <p className="text-gray-600 mb-4 text-sm">{search_result_text || 'No short description available.'}</p>
 
           <div className="grid grid-cols-2 gap-2">
-            {/* Corrected features rendering */}
             {renderFeatures(features)}
           </div>
 
           <div className="mt-4 flex items-center">
             <ShieldCheck className="h-4 w-4 mr-1 text-gray-400 flex-shrink-0" />
-            {/* Render Licenses */}
             {renderLicenses(regulation)}
           </div>
         </div>
@@ -124,18 +75,19 @@ export const BrokerCard: React.FC<BrokerCardProps> = ({
         {/* Buttons */}
         <div className="md:w-1/4 flex flex-col justify-center items-center mt-4 md:mt-0">
           <Link
-            href={`/broker/${slug}`} // Use slug for link
-            className="w-full bg-[#145588] hover:bg-[#0e3e66] text-white text-center py-3 rounded-md font-medium transition duration-200 mb-2"
+            href={`/cfd-brokers/${slug}`}
+            className="w-full text-center py-3 rounded-md font-medium transition duration-200 mb-2 hover:opacity-90"
+            style={{backgroundColor: '#145588', color: 'white'}}
           >
             Visit Broker
           </Link>
 
           <p className="text-gray-400 text-xs text-center mb-4">
-            (Risk note: {risk_note || 'N/A'})
+            (Risk note: {riskWarning})
           </p>
 
           <Link
-            href={`/review/${slug}`} // Use slug for link
+            href={`/cfd-brokers/${slug}`}
             className="text-blue-600 hover:text-blue-800 font-medium text-sm"
           >
             Read Review →
