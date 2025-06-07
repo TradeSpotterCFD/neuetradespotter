@@ -1,5 +1,7 @@
+// src/app/cfd-brokers/[slug]/page.tsx
 import { notFound } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { getRiskWarning } from '@/lib/riskWarning'; // NEU importieren
 import { 
   Building, 
   MapPin, 
@@ -19,6 +21,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import Image from 'next/image';
+import { Footer } from '@/components/Footer';
 
 interface BrokerDetailPageProps {
   params: {
@@ -55,6 +58,29 @@ async function getBrokerBySlug(slug: string) {
     translations: translationsByLang
   };
 }
+
+// Helper function to render deposit methods with limit
+const renderDepositMethods = (depositMethodsString: string | undefined | null, limit: number = 4) => {
+  if (!depositMethodsString) {
+    return <span className="text-gray-600">N/A</span>;
+  }
+
+  const methods = depositMethodsString.split(',').map(method => method.trim()).filter(Boolean);
+  
+  if (methods.length === 0) {
+    return <span className="text-gray-600">N/A</span>;
+  }
+
+  const displayedMethods = methods.slice(0, limit);
+  const remainingCount = methods.length - limit;
+
+  return (
+    <span className="text-gray-600">
+      {displayedMethods.join(', ')}
+      {remainingCount > 0 && ` +${remainingCount}`}
+    </span>
+  );
+};
 
 // Related Brokers Component
 async function getRelatedBrokers(currentBrokerId: number) {
@@ -161,47 +187,33 @@ export default async function BrokerDetailPage({ params }: BrokerDetailPageProps
   const currentTranslation = broker.translations?.en || {};
   const brokerName = broker.name || 'eToro';
 
-  // EXTENSIVE DEBUG - Check what's actually happening
-  console.log('=== BROKER DEBUG START ===');
-  console.log('Raw broker object:', broker);
-  console.log('broker.company:', broker.company);
-  console.log('broker.max_leverage:', broker.max_leverage);
-  console.log('typeof max_leverage:', typeof broker.max_leverage);
-  console.log('Is max_leverage null?', broker.max_leverage === null);
-  console.log('Is max_leverage undefined?', broker.max_leverage === undefined);
-  console.log('Is max_leverage empty string?', broker.max_leverage === '');
-  console.log('=== BROKER DEBUG END ===');
+  // NEU: Risk Warning aus der Datenbank holen
+  const riskWarning = await getRiskWarning(broker.risk_note, broker.broker_type, 'en');
 
-  // NO FALLBACKS AT ALL - Show exactly what's in database
+  // Simple feature list - no complex processing
+  const defaultFeatures = ['Mobile Compatible', 'Demo Account', 'Fast Payouts', 'Regulated and Secure'];
+
+  // Basic data with fallbacks
   const brokerData = {
-    name: broker.name,
-    company: broker.company, // Should show "eToro Group" not "eToro Group Ltd"
-    headquarters: broker.headquarters,
-    founded_year: broker.founded_year,
-    min_deposit: broker.min_deposit,
-    max_leverage: broker.max_leverage, // Should be null/empty and show as empty
-    spreads_from: broker.spreads_from,
-    rating: broker.rating,
-    regulation: broker.regulation,
-    fund_security: broker.fund_security,
-    trading_platforms: broker.trading_platforms,
-    customer_support: broker.customer_support,
-    user_base: broker.user_base,
-    withdrawal_fees: broker.withdrawal_fees,
-    deposit_methods: broker.deposit_methods,
-    website_url: broker.website_url,
-    bonus: broker.bonus,
-    risk_note: broker.risk_note
+    name: brokerName,
+    company: broker.company || 'eToro Group Ltd',
+    headquarters: broker.headquarters || 'Tel Aviv, Limassol, London',
+    founded_year: broker.founded_year || '2007',
+    min_deposit: broker.min_deposit || '50',
+    max_leverage: broker.max_leverage || '1:30',
+    spreads_from: broker.spreads_from || '1 pip',
+    rating: broker.rating || '4.8',
+    regulation: broker.regulation || 'BaFin, AMF, CONSOB +21',
+    fund_security: broker.fund_security || 'ICF €20,000 in Europe',
+    trading_platforms: broker.trading_platforms || 'eToro WebTrader',
+    customer_support: broker.customer_support || 'Live-Chat 24/5, Support-Tickets',
+    user_base: broker.user_base || '3.5 million active traders',
+    withdrawal_fees: broker.withdrawal_fees || '5 USD per payout',
+    deposit_methods: broker.deposit_methods || 'Visa, MasterCard, Skrill, Neteller, Wire Transfer, Bitcoin (BTC), Litecoin (LTC)',
+    website_url: broker.website_url || '#',
+    bonus: broker.bonus || 'Welcome Bonus Available',
+    risk_note: riskWarning // NEU: Verwende die Datenbank-Version
   };
-
-  const depositMethodsArray = typeof brokerData.deposit_methods === 'string'
-    ? brokerData.deposit_methods.split(',').map(m => m.trim()).filter(Boolean)
-    : Array.isArray(brokerData.deposit_methods)
-    ? brokerData.deposit_methods
-    : [];
-
-  const depositMethodsDisplay = depositMethodsArray.slice(0, 4).join(', ') +
-    (depositMethodsArray.length > 4 ? ` +${depositMethodsArray.length - 4}` : '');
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -286,156 +298,167 @@ export default async function BrokerDetailPage({ params }: BrokerDetailPageProps
       {/* At a Glance Section */}
       <section className="py-16 bg-white">
         <div className="container mx-auto px-4">
-        <div className="flex flex-col lg:flex-row gap-12">
+          <div className="flex flex-col lg:flex-row gap-12">
             {/* Left - At a Glance Details */}
-            <div className="lg:w-2/3 lg:pr-6 lg:border-r lg:border-gray-300">
+            <div className="lg:w-3/4">
               <h2 className="text-3xl font-bold text-gray-800 mb-8">{brokerData.name} at a Glance</h2>
+              
+              {/* At a Glance Box with border and divider */}
+              <div className="bg-white rounded-lg border border-gray-200 p-6 relative">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+                  {/* Left Column */}
+                  <div className="space-y-6 pr-6">
+                    {/* Company */}
+                    <div className="flex items-start space-x-3">
+                      <Building className="h-6 w-6 text-blue-600 mt-1 flex-shrink-0" />
+                      <div>
+                        <div className="font-semibold text-gray-700">Company:</div>
+                        <div className="text-gray-600">{brokerData.company}</div>
+                      </div>
+                    </div>
 
-              <div className="border border-gray-200 rounded-lg shadow-md p-6 relative grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="hidden md:block absolute inset-y-0 left-1/2 w-px bg-gray-200" />
-                {/* Company - DIRECT FROM DB */}
-                <div className="flex items-start space-x-3">
-                  <Building className="h-6 w-6 text-blue-600 mt-1 flex-shrink-0" />
-                  <div>
-                    <div className="font-semibold text-gray-700">Company:</div>
-                    <div className="text-gray-600">{broker.company || 'No company data'}</div>
-                  </div>
-                </div>
+                    {/* Founded Year */}
+                    <div className="flex items-start space-x-3">
+                      <Calendar className="h-6 w-6 text-purple-600 mt-1 flex-shrink-0" />
+                      <div>
+                        <div className="font-semibold text-gray-700">Online since:</div>
+                        <div className="text-gray-600">{brokerData.founded_year}</div>
+                      </div>
+                    </div>
 
-                {/* Headquarters - DIRECT FROM DB */}
-                <div className="flex items-start space-x-3">
-                  <MapPin className="h-6 w-6 text-red-600 mt-1 flex-shrink-0" />
-                  <div>
-                    <div className="font-semibold text-gray-700">Headquarters:</div>
-                    <div className="text-gray-600">{broker.headquarters || 'No headquarters data'}</div>
-                  </div>
-                </div>
+                    {/* Max Leverage */}
+                    <div className="flex items-start space-x-3">
+                      <TrendingUp className="h-6 w-6 text-orange-600 mt-1 flex-shrink-0" />
+                      <div>
+                        <div className="font-semibold text-gray-700">Max. Leverage:</div>
+                        <div className="text-gray-600">{brokerData.max_leverage}</div>
+                      </div>
+                    </div>
 
-                {/* Founded Year - DIRECT FROM DB */}
-                <div className="flex items-start space-x-3">
-                  <Calendar className="h-6 w-6 text-purple-600 mt-1 flex-shrink-0" />
-                  <div>
-                    <div className="font-semibold text-gray-700">Online since:</div>
-                    <div className="text-gray-600">{broker.founded_year || 'No founding year data'}</div>
-                  </div>
-                </div>
+                    {/* Trading Platforms */}
+                    <div className="flex items-start space-x-3">
+                      <Award className="h-6 w-6 text-yellow-600 mt-1 flex-shrink-0" />
+                      <div>
+                        <div className="font-semibold text-gray-700">Trading Platforms:</div>
+                        <div className="text-gray-600">{brokerData.trading_platforms}</div>
+                      </div>
+                    </div>
 
-                {/* Min Deposit - DIRECT FROM DB */}
-                <div className="flex items-start space-x-3">
-                  <DollarSign className="h-6 w-6 text-green-600 mt-1 flex-shrink-0" />
-                  <div>
-                    <div className="font-semibold text-gray-700">Min. Deposit:</div>
-                    <div className="text-gray-600">${broker.min_deposit || 'No min deposit data'}</div>
-                  </div>
-                </div>
+                    {/* Withdrawal Fees */}
+                    <div className="flex items-start space-x-3">
+                      <Banknote className="h-6 w-6 text-red-600 mt-1 flex-shrink-0" />
+                      <div>
+                        <div className="font-semibold text-gray-700">Withdrawal Fees:</div>
+                        <div className="text-gray-600">{brokerData.withdrawal_fees}</div>
+                      </div>
+                    </div>
 
-                {/* Max Leverage - DIRECT FROM DATABASE */}
-                <div className="flex items-start space-x-3">
-                  <TrendingUp className="h-6 w-6 text-orange-600 mt-1 flex-shrink-0" />
-                  <div>
-                    <div className="font-semibold text-gray-700">Max. Leverage:</div>
-                    <div className="text-gray-600">{broker.max_leverage || 'No leverage data'}</div>
+                    {/* User Base */}
+                    <div className="flex items-start space-x-3">
+                      <Users className="h-6 w-6 text-purple-600 mt-1 flex-shrink-0" />
+                      <div>
+                        <div className="font-semibold text-gray-700">User Base:</div>
+                        <div className="text-gray-600">{brokerData.user_base}</div>
+                      </div>
+                    </div>
                   </div>
-                </div>
 
-                {/* Spreads From */}
-                <div className="flex items-start space-x-3">
-                  <BarChart3 className="h-6 w-6 text-blue-600 mt-1 flex-shrink-0" />
-                  <div>
-                    <div className="font-semibold text-gray-700">Spreads From:</div>
-                    <div className="text-gray-600">{brokerData.spreads_from}</div>
-                  </div>
-                </div>
+                  {/* Right Column */}
+                  <div className="space-y-6 border-l border-gray-200 pl-6">
+                    {/* Headquarters */}
+                    <div className="flex items-start space-x-3">
+                      <MapPin className="h-6 w-6 text-red-600 mt-1 flex-shrink-0" />
+                      <div>
+                        <div className="font-semibold text-gray-700">Headquarters:</div>
+                        <div className="text-gray-600">{brokerData.headquarters}</div>
+                      </div>
+                    </div>
 
-                {/* Trading Platforms */}
-                <div className="flex items-start space-x-3">
-                  <Award className="h-6 w-6 text-yellow-600 mt-1 flex-shrink-0" />
-                  <div>
-                    <div className="font-semibold text-gray-700">Trading Platforms:</div>
-                    <div className="text-gray-600">{brokerData.trading_platforms}</div>
-                  </div>
-                </div>
+                    {/* Min Deposit */}
+                    <div className="flex items-start space-x-3">
+                      <DollarSign className="h-6 w-6 text-green-600 mt-1 flex-shrink-0" />
+                      <div>
+                        <div className="font-semibold text-gray-700">Min. Deposit:</div>
+                        <div className="text-gray-600">${brokerData.min_deposit}</div>
+                      </div>
+                    </div>
 
-                {/* Deposit Methods */}
-                <div className="flex items-start space-x-3">
-                  <CreditCard className="h-6 w-6 text-green-600 mt-1 flex-shrink-0" />
-                  <div>
-                    <div className="font-semibold text-gray-700">Deposit Methods:</div>
-                    <div className="text-gray-600">{brokerData.deposit_methods}</div>
-                  </div>
-                </div>
+                    {/* Spreads From */}
+                    <div className="flex items-start space-x-3">
+                      <BarChart3 className="h-6 w-6 text-blue-600 mt-1 flex-shrink-0" />
+                      <div>
+                        <div className="font-semibold text-gray-700">Spreads From:</div>
+                        <div className="text-gray-600">{brokerData.spreads_from}</div>
+                      </div>
+                    </div>
 
-                {/* Withdrawal Fees - FIXED DUPLICATE */}
-                <div className="flex items-start space-x-3">
-                  <Banknote className="h-6 w-6 text-red-600 mt-1 flex-shrink-0" />
-                  <div>
-                    <div className="font-semibold text-gray-700">Withdrawal Fees:</div>
-                    <div className="text-gray-600">{brokerData.withdrawal_fees}</div>
-                  </div>
-                </div>
+                    {/* Deposit Methods - Updated with limit and +X display */}
+                    <div className="flex items-start space-x-3">
+                      <CreditCard className="h-6 w-6 text-green-600 mt-1 flex-shrink-0" />
+                      <div>
+                        <div className="font-semibold text-gray-700">Deposit Methods:</div>
+                        <div className="text-gray-600">
+                          {renderDepositMethods(brokerData.deposit_methods, 4)}
+                        </div>
+                      </div>
+                    </div>
 
-                {/* Customer Support */}
-                <div className="flex items-start space-x-3">
-                  <Phone className="h-6 w-6 text-blue-600 mt-1 flex-shrink-0" />
-                  <div>
-                    <div className="font-semibold text-gray-700">Customer Service:</div>
-                    <div className="text-gray-600">{brokerData.customer_support}</div>
-                  </div>
-                </div>
+                    {/* Customer Support */}
+                    <div className="flex items-start space-x-3">
+                      <Phone className="h-6 w-6 text-blue-600 mt-1 flex-shrink-0" />
+                      <div>
+                        <div className="font-semibold text-gray-700">Customer Service:</div>
+                        <div className="text-gray-600">{brokerData.customer_support}</div>
+                      </div>
+                    </div>
 
-                {/* User Base */}
-                <div className="flex items-start space-x-3">
-                  <Users className="h-6 w-6 text-purple-600 mt-1 flex-shrink-0" />
-                  <div>
-                    <div className="font-semibold text-gray-700">User Base:</div>
-                    <div className="text-gray-600">{brokerData.user_base}</div>
+                    {/* Fund Security */}
+                    <div className="flex items-start space-x-3">
+                      <Shield className="h-6 w-6 text-green-600 mt-1 flex-shrink-0" />
+                      <div>
+                        <div className="font-semibold text-gray-700">Fund Security:</div>
+                        <div className="text-gray-600">{brokerData.fund_security}</div>
+                      </div>
+                    </div>
                   </div>
-                </div>
 
-                {/* Fund Security */}
-                <div className="flex items-start space-x-3">
-                  <Shield className="h-6 w-6 text-green-600 mt-1 flex-shrink-0" />
-                  <div>
-                    <div className="font-semibold text-gray-700">Fund Security:</div>
-                    <div className="text-gray-600">{brokerData.fund_security}</div>
-                  </div>
+                  {/* Horizontal Divider - only visible on small screens */}
+                  <div className="lg:hidden col-span-full border-t border-gray-200 my-4"></div>
                 </div>
               </div>
             </div>
 
-            {/* Right Sidebar - Quick Facts */}
-            <div className="lg:w-1/3 space-y-6">
-              {/* Quick Facts Card */}
-              <div className="bg-white rounded-lg shadow-lg p-6 sticky top-8">
+            {/* Right Sidebar - Smaller and with different content */}
+            <div className="lg:w-1/4 space-y-6">
+              {/* Trading Conditions Summary Card */}
+              <div className="bg-white rounded-lg shadow-lg p-6">
                 <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
-                  <Award className="h-5 w-5 mr-2 text-blue-600" />
-                  Quick Facts
+                  <TrendingUp className="h-5 w-5 mr-2 text-blue-600" />
+                  Trading Summary
                 </h3>
                 
                 <div className="space-y-5">
-                  {/* Founded */}
-                  <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-                    <span className="text-gray-600 font-medium">Founded:</span>
-                    <span className="font-bold text-gray-800">{brokerData.founded_year}</span>
-                  </div>
-
-                  {/* Headquarters */}
-                  <div className="flex justify-between items-start border-b border-gray-100 pb-3">
-                    <span className="text-gray-600 font-medium">Headquarters:</span>
-                    <span className="font-bold text-gray-800 text-right text-sm leading-tight max-w-32">
-                      {brokerData.headquarters}
-                    </span>
-                  </div>
-
                   {/* Min Deposit */}
                   <div className="flex justify-between items-center border-b border-gray-100 pb-3">
                     <span className="text-gray-600 font-medium">Min. Deposit:</span>
                     <span className="font-bold text-green-600 text-lg">${brokerData.min_deposit}</span>
                   </div>
 
+                  {/* Max Leverage */}
+                  <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+                    <span className="text-gray-600 font-medium">Max. Leverage:</span>
+                    <span className="font-bold text-orange-600">{brokerData.max_leverage}</span>
+                  </div>
+
+                  {/* Spreads */}
+                  <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+                    <span className="text-gray-600 font-medium">Spreads From:</span>
+                    <span className="font-bold text-blue-600">{brokerData.spreads_from}</span>
+                  </div>
+
                   {/* Rating */}
                   <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-                    <span className="text-gray-600 font-medium">Rating:</span>
+                    <span className="text-gray-600 font-medium">Our Rating:</span>
                     <div className="flex items-center">
                       <div className="flex items-center mr-2">
                         <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
@@ -448,11 +471,15 @@ export default async function BrokerDetailPage({ params }: BrokerDetailPageProps
                     </div>
                   </div>
 
-                  {/* Regulators */}
+                  {/* Regulation Status */}
                   <div className="pt-2">
-                    <div className="text-gray-600 font-medium mb-3">Regulators:</div>
-                    <div className="text-xs font-semibold leading-relaxed text-gray-700 bg-gray-50 p-3 rounded-lg">
-                      BaFin, AMF, CONSOB, CNMV, FCA, FINMA, FSC, HANFA, NBS, ASF, CBI, MFSA, KNF, MNB, CNB, CySEC, FI, HCMC, CMVM, FIN-FSA, FSA, AFM, FSMA, FMA
+                    <div className="text-gray-600 font-medium mb-3">Regulation:</div>
+                    <div className="flex items-center text-sm">
+                      <Shield className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
+                      <span className="font-medium text-green-700">Fully Regulated</span>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      Licensed by FCA, CySEC & more
                     </div>
                   </div>
                 </div>
@@ -462,7 +489,8 @@ export default async function BrokerDetailPage({ params }: BrokerDetailPageProps
                   href={brokerData.website_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full mt-6 bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 px-6 rounded-lg transition-colors duration-200 inline-flex items-center justify-center text-lg"
+                  className="w-full mt-6 text-white font-bold py-4 px-6 rounded-lg transition-colors duration-200 inline-flex items-center justify-center text-lg hover:opacity-90"
+                  style={{backgroundColor: '#703d98'}}
                 >
                   Start Trading
                   <ExternalLink className="ml-2 h-5 w-5" />
@@ -474,39 +502,61 @@ export default async function BrokerDetailPage({ params }: BrokerDetailPageProps
                 </p>
               </div>
 
-              {/* Table of Contents Card */}
+              {/* Pros & Cons Card */}
               <div className="bg-white rounded-lg shadow-lg p-6">
                 <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
-                  <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
-                  Table of Contents
+                  <CheckCircle className="h-5 w-5 mr-2 text-green-600" />
+                  Pros & Cons
                 </h4>
                 
-                <div className="space-y-3">
-                  <a href="#overview" className="flex items-center text-gray-600 hover:text-blue-600 transition-colors py-2 px-3 rounded-lg hover:bg-blue-50">
-                    <Star className="h-4 w-4 mr-3 flex-shrink-0" />
-                    <span className="font-medium">{brokerData.name} Overview</span>
-                  </a>
-                  <a href="#at-a-glance" className="flex items-center text-gray-600 hover:text-blue-600 transition-colors py-2 px-3 rounded-lg hover:bg-blue-50">
-                    <Award className="h-4 w-4 mr-3 flex-shrink-0" />
-                    <span className="font-medium">At a Glance</span>
-                  </a>
-                  <a href="#trading" className="flex items-center text-gray-600 hover:text-blue-600 transition-colors py-2 px-3 rounded-lg hover:bg-blue-50">
-                    <TrendingUp className="h-4 w-4 mr-3 flex-shrink-0" />
-                    <span className="font-medium">Trading Conditions</span>
-                  </a>
-                  <a href="#platforms" className="flex items-center text-gray-600 hover:text-blue-600 transition-colors py-2 px-3 rounded-lg hover:bg-blue-50">
-                    <Building className="h-4 w-4 mr-3 flex-shrink-0" />
-                    <span className="font-medium">Trading Platforms</span>
-                  </a>
-                  <a href="#security" className="flex items-center text-gray-600 hover:text-blue-600 transition-colors py-2 px-3 rounded-lg hover:bg-blue-50">
-                    <Shield className="h-4 w-4 mr-3 flex-shrink-0" />
-                    <span className="font-medium">Security & Regulation</span>
-                  </a>
+                {/* Pros */}
+                <div className="mb-4">
+                  <h5 className="text-sm font-semibold text-green-700 mb-2">✓ Pros</h5>
+                  <ul className="space-y-1">
+                    <li className="text-sm text-gray-600">• Low minimum deposit (${brokerData.min_deposit})</li>
+                    <li className="text-sm text-gray-600">• Multiple payment methods</li>
+                    <li className="text-sm text-gray-600">• Regulated platform</li>
+                    <li className="text-sm text-gray-600">• User-friendly interface</li>
+                  </ul>
+                </div>
+
+                {/* Cons */}
+                <div>
+                  <h5 className="text-sm font-semibold text-red-700 mb-2">✗ Cons</h5>
+                  <ul className="space-y-1">
+                    <li className="text-sm text-gray-600">• Withdrawal fees apply</li>
+                    <li className="text-sm text-gray-600">• Limited leverage for retail</li>
+                    <li className="text-sm text-gray-600">• Spread-based pricing</li>
+                  </ul>
                 </div>
               </div>
 
-              {/* Related Brokers Card */}
-              <RelatedBrokers currentBrokerId={broker.id} />
+              {/* Popular Trading Assets */}
+              <div className="bg-white rounded-lg shadow-lg p-6">
+                <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                  <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
+                  Popular Assets
+                </h4>
+                
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded-lg">
+                    <span className="text-sm font-medium text-gray-700">EUR/USD</span>
+                    <span className="text-xs text-green-600 font-semibold">From 1 pip</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded-lg">
+                    <span className="text-sm font-medium text-gray-700">GBP/USD</span>
+                    <span className="text-xs text-green-600 font-semibold">From 1 pip</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded-lg">
+                    <span className="text-sm font-medium text-gray-700">Bitcoin CFD</span>
+                    <span className="text-xs text-blue-600 font-semibold">Popular</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded-lg">
+                    <span className="text-sm font-medium text-gray-700">Apple Stock</span>
+                    <span className="text-xs text-blue-600 font-semibold">No Commission</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -515,10 +565,59 @@ export default async function BrokerDetailPage({ params }: BrokerDetailPageProps
       {/* Bottom Section - Clean and Simple */}
       <section className="py-16 bg-gray-50">
         <div className="container mx-auto px-4">
-          {/* Related Brokers Section */}
-          <RelatedBrokers currentBrokerId={broker.id} />
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">Why Choose {brokerData.name}?</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {/* Security Feature */}
+              <div className="bg-white rounded-lg p-6 text-center shadow-lg">
+                <Shield className="h-12 w-12 text-green-600 mx-auto mb-4" />
+                <h3 className="text-lg font-bold text-gray-800 mb-3">Secure & Regulated</h3>
+                <p className="text-gray-600 text-sm">
+                  Fully regulated by multiple authorities including FCA and CySEC. Your funds are protected.
+                </p>
+              </div>
+
+              {/* Easy Trading Feature */}
+              <div className="bg-white rounded-lg p-6 text-center shadow-lg">
+                <TrendingUp className="h-12 w-12 text-blue-600 mx-auto mb-4" />
+                <h3 className="text-lg font-bold text-gray-800 mb-3">Easy Trading</h3>
+                <p className="text-gray-600 text-sm">
+                  User-friendly platform with low minimum deposit of just ${brokerData.min_deposit}.
+                </p>
+              </div>
+
+              {/* Support Feature */}
+              <div className="bg-white rounded-lg p-6 text-center shadow-lg">
+                <Phone className="h-12 w-12 text-purple-600 mx-auto mb-4" />
+                <h3 className="text-lg font-bold text-gray-800 mb-3">24/5 Support</h3>
+                <p className="text-gray-600 text-sm">
+                  Get help when you need it with live chat and comprehensive support tickets.
+                </p>
+              </div>
+            </div>
+
+            {/* Final CTA */}
+            <div className="text-center mt-12">
+              <a
+                href={brokerData.website_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center text-white font-bold py-4 px-8 rounded-lg transition-colors duration-200 text-lg hover:opacity-90"
+                style={{backgroundColor: '#703d98'}}
+              >
+                Start Trading with {brokerData.name}
+                <ExternalLink className="ml-2 h-5 w-5" />
+              </a>
+              <p className="text-xs text-gray-500 mt-4">
+                +18+. {brokerData.risk_note}
+              </p>
+            </div>
+          </div>
         </div>
       </section>
+
+      <Footer />
     </div>
   );
 }
