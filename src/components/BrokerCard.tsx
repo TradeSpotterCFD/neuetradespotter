@@ -1,8 +1,8 @@
-// src/components/BrokerCard.tsx - Updated version with Risk Note function
+// src/components/BrokerCard.tsx - Fixed version with Risk Warning
 import Link from 'next/link';
 import Image from 'next/image';
 import { Star, CheckCircle2, ShieldCheck } from 'lucide-react';
-import { getRiskWarningSync } from '@/lib/riskWarning'; // NEU importieren
+import { getRiskWarningSync } from '@/lib/riskWarning';
 
 // Interface for the props the BrokerCard component expects
 interface BrokerCardProps {
@@ -14,20 +14,96 @@ interface BrokerCardProps {
   bonus?: string | null;
   features?: string | string[] | null;
   regulation?: string | null;
-  risk_note?: string | number | null; // Updated to accept number or string
+  risk_note?: string | number | null;
   search_result_text?: string | null;
 }
+
+// Helper function to render star ratings
+const renderStars = (rating: number) => {
+  const stars = [];
+  const fullStars = Math.floor(rating);
+  const hasHalfStar = rating % 1 !== 0;
+
+  for (let i = 0; i < fullStars; i++) {
+    stars.push(
+      <Star key={i} className="h-4 w-4 text-yellow-400 fill-current" />
+    );
+  }
+
+  if (hasHalfStar) {
+    stars.push(
+      <Star key="half" className="h-4 w-4 text-yellow-400 fill-current opacity-50" />
+    );
+  }
+
+  const emptyStars = 5 - Math.ceil(rating);
+  for (let i = 0; i < emptyStars; i++) {
+    stars.push(
+      <Star key={`empty-${i}`} className="h-4 w-4 text-gray-300" />
+    );
+  }
+
+  return (
+    <div className="flex items-center">
+      {stars}
+      <span className="ml-2 text-sm text-gray-600">({rating})</span>
+    </div>
+  );
+};
+
+// Helper function to render features
+const renderFeatures = (features: string | string[] | null | undefined) => {
+  if (!features) return null;
+
+  const featuresArray = Array.isArray(features) ? features : [features];
+  
+  return featuresArray.slice(0, 4).map((feature, index) => (
+    <div key={index} className="flex items-center text-sm text-gray-600">
+      <CheckCircle2 className="h-3 w-3 mr-1 text-green-500 flex-shrink-0" />
+      <span className="truncate">{feature}</span>
+    </div>
+  ));
+};
+
+// Helper function to render regulation/licenses
+const renderLicenses = (regulation: string | null | undefined) => {
+  if (!regulation) {
+    return <span className="text-xs text-gray-500">Regulation info not available</span>;
+  }
+
+  const licenses = regulation.split(',').map(license => license.trim()).filter(Boolean);
+  const displayLimit = 8;
+  const displayedLicenses = licenses.slice(0, displayLimit);
+  const remainingCount = licenses.length - displayLimit;
+
+  return (
+    <div className="flex flex-wrap gap-1 items-center">
+      {displayedLicenses.map((license, index) => (
+        <span key={index} className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+          {license}
+        </span>
+      ))}
+      {remainingCount > 0 && (
+        <span className="text-xs text-gray-500 font-medium">
+          +{remainingCount}
+        </span>
+      )}
+    </div>
+  );
+};
 
 export const BrokerCard: React.FC<BrokerCardProps> = ({
   id, name, slug, logo_url, rating, bonus, features, regulation, risk_note, search_result_text
 }) => {
-  // NEU: Risk Warning aus der Datenbank holen (synchron für Client-Komponenten)
-  const riskWarning = getRiskWarningSync(risk_note, 'cfd', 'en');
+  // Get risk warning from the database (sync for client components)
+  // Convert undefined to null to match the expected type
+  const normalizedRiskNote = risk_note === undefined ? null : risk_note;
+  const riskWarning = getRiskWarningSync(normalizedRiskNote, 'cfd', 'en');
 
   return (
     <div key={id} className="bg-white rounded-lg shadow-md overflow-hidden">
       <div className="p-6 flex flex-col md:flex-row">
-        {/* Logo und Name */}
+        {/* Logo and Name */}
         <div className="md:w-1/4 flex flex-col items-center md:items-start mb-6 md:mb-0">
           <div className="relative w-24 h-24 bg-gray-200 rounded-md flex items-center justify-center text-gray-400 mb-4 overflow-hidden">
             {logo_url ? (
@@ -46,7 +122,7 @@ export const BrokerCard: React.FC<BrokerCardProps> = ({
           {renderStars(rating)}
         </div>
 
-        {/* Beschreibung und Bonus */}
+        {/* Description and Bonus */}
         <div className="md:w-2/4 md:px-6">
           {bonus && (
             <div className="bg-blue-50 p-3 rounded-md mb-4 text-sm">

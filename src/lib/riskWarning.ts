@@ -1,4 +1,4 @@
-// lib/riskWarning.ts - Zentrale Funktion für Risk Warnings
+// lib/riskWarning.ts - Fixed version to handle undefined
 import { supabase } from '@/lib/supabase';
 
 interface RiskWarningCache {
@@ -18,7 +18,7 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 Minuten
  * @returns Vollständiger Risk Warning Text
  */
 export async function getRiskWarning(
-  riskPercentage: string | number | null, 
+  riskPercentage: string | number | null | undefined, 
   brokerType: string = 'cfd', 
   langCode: string = 'en'
 ): Promise<string> {
@@ -39,7 +39,7 @@ export async function getRiskWarning(
     // Hole Template aus der Datenbank
     const { data, error } = await supabase
       .from('risk_warning_translations')
-      .select('warning_template')
+      .select('risk_warning_template')
       .eq('language_code', langCode)
       .eq('broker_type', brokerType)
       .single();
@@ -51,13 +51,13 @@ export async function getRiskWarning(
       if (langCode !== 'en') {
         const { data: fallbackData, error: fallbackError } = await supabase
           .from('risk_warning_translations')
-          .select('warning_template')
+          .select('risk_warning_template')
           .eq('language_code', 'en')
           .eq('broker_type', brokerType)
           .single();
 
         if (!fallbackError && fallbackData) {
-          const template = fallbackData.warning_template;
+          const template = fallbackData.risk_warning_template;
           riskWarningCache[cacheKey] = template;
           cacheExpiry = now + CACHE_DURATION;
           return template.replace('{percentage}', String(riskPercentage));
@@ -68,8 +68,8 @@ export async function getRiskWarning(
       return `CFD trading involves high risk. ${riskPercentage}% of retail accounts lose money when trading CFDs with this provider.`;
     }
 
-    if (data && data.warning_template) {
-      const template = data.warning_template;
+    if (data && data.risk_warning_template) {
+      const template = data.risk_warning_template;
       
       // Cache aktualisieren
       riskWarningCache[cacheKey] = template;
@@ -90,10 +90,10 @@ export async function getRiskWarning(
 
 /**
  * Synchrone Version mit Fallback für Client-Komponenten
- * Nutzt Cache oder Fallback-Texte
+ * Nutzt nur Fallback-Texte (DB-Abfrage deaktiviert)
  */
 export function getRiskWarningSync(
-  riskPercentage: string | number | null, 
+  riskPercentage: string | number | null | undefined, 
   brokerType: string = 'cfd', 
   langCode: string = 'en'
 ): string {
@@ -101,15 +101,10 @@ export function getRiskWarningSync(
     return 'Trading involves risk. Your capital may be at risk.';
   }
 
-  const cacheKey = `${langCode}-${brokerType}`;
-  const now = Date.now();
+  // Debug log
+  console.log('getRiskWarningSync called with:', { riskPercentage, brokerType, langCode });
 
-  // Prüfe Cache
-  if (cacheExpiry > now && riskWarningCache[cacheKey]) {
-    return riskWarningCache[cacheKey].replace('{percentage}', String(riskPercentage));
-  }
-
-  // Hardcoded Fallbacks für verschiedene Sprachen
+  // Verwende nur Fallback-Texte bis die DB-Tabelle erstellt ist
   const fallbackTexts: { [key: string]: { [key: string]: string } } = {
     en: {
       cfd: `CFD trading involves high risk. {percentage}% of retail accounts lose money when trading CFDs with this provider.`,
@@ -126,7 +121,10 @@ export function getRiskWarningSync(
   const langTexts = fallbackTexts[langCode] || fallbackTexts.en;
   const template = langTexts[brokerType] || langTexts.cfd;
   
-  return template.replace('{percentage}', String(riskPercentage));
+  const result = template.replace('{percentage}', String(riskPercentage));
+  console.log('getRiskWarningSync result:', result);
+  
+  return result;
 }
 
 /**
@@ -135,4 +133,15 @@ export function getRiskWarningSync(
 export function clearRiskWarningCache(): void {
   riskWarningCache = {};
   cacheExpiry = 0;
+  console.log('Risk warning cache cleared');
+}
+
+/**
+ * Cache für Development leeren (temporäre Funktion)
+ */
+export function clearCacheForDevelopment(): void {
+  if (typeof window !== 'undefined') {
+    // Client-side cache clearing
+    clearRiskWarningCache();
+  }
 }

@@ -188,13 +188,14 @@ export default async function BrokerDetailPage({ params }: BrokerDetailPageProps
   const brokerName = broker.name || 'eToro';
 
   // NEU: Risk Warning aus der Datenbank holen
-  const riskWarning = await getRiskWarning(broker.risk_note, broker.broker_type, 'en');
+const riskWarning = await getRiskWarning(broker.risk_note, broker.broker_type, 'en');
+console.log('DEBUG: broker.risk_note:', broker.risk_note, 'riskWarning:', riskWarning); // DEBUG hinzufügen
 
   // Simple feature list - no complex processing
   const defaultFeatures = ['Mobile Compatible', 'Demo Account', 'Fast Payouts', 'Regulated and Secure'];
 
   // Basic data with fallbacks
-  const brokerData = {
+ const brokerData = {
     name: brokerName,
     company: broker.company || 'eToro Group Ltd',
     headquarters: broker.headquarters || 'Tel Aviv, Limassol, London',
@@ -428,6 +429,10 @@ export default async function BrokerDetailPage({ params }: BrokerDetailPageProps
               </div>
             </div>
 
+
+
+
+
             {/* Right Sidebar - Smaller and with different content */}
             <div className="lg:w-1/4 space-y-6">
               {/* Trading Conditions Summary Card */}
@@ -498,7 +503,7 @@ export default async function BrokerDetailPage({ params }: BrokerDetailPageProps
 
                 {/* Risk Warning */}
                 <p className="text-xs text-gray-500 mt-4 text-center leading-relaxed">
-                  +18+. {brokerData.risk_note}
+                  +18+. {riskWarning}
                 </p>
               </div>
 
@@ -610,7 +615,7 @@ export default async function BrokerDetailPage({ params }: BrokerDetailPageProps
                 <ExternalLink className="ml-2 h-5 w-5" />
               </a>
               <p className="text-xs text-gray-500 mt-4">
-                +18+. {brokerData.risk_note}
+                +18+. {riskWarning}
               </p>
             </div>
           </div>
