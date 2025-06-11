@@ -1,4 +1,4 @@
-// lib/riskWarning.ts - Fixed version to handle undefined
+// lib/riskWarning.ts - Clean version without JSX
 import { supabase } from '@/lib/supabase';
 
 interface RiskWarningCache {
@@ -31,8 +31,16 @@ export async function getRiskWarning(
   const now = Date.now();
 
   // Prüfe Cache
-  if (cacheExpiry > now && riskWarningCache[cacheKey]) {
-    return riskWarningCache[cacheKey].replace('{percentage}', String(riskPercentage));
+   if (cacheExpiry > now && riskWarningCache[cacheKey]) {
+    let template = riskWarningCache[cacheKey];
+
+    // Falls das Template noch keine Platzhalter enthält (aus einem alten Cache)
+    if (!template.includes('{percentage}')) {
+      template = template.replace(/\d+%/, '{percentage}%');
+      riskWarningCache[cacheKey] = template; // Cache aktualisieren
+    }
+
+    return template.replace('{percentage}', String(riskPercentage));
   }
 
   try {
@@ -68,13 +76,18 @@ export async function getRiskWarning(
       return `CFD trading involves high risk. ${riskPercentage}% of retail accounts lose money when trading CFDs with this provider.`;
     }
 
-    if (data && data.risk_warning_template) {
-      const template = data.risk_warning_template;
-      
+   if (data && data.risk_warning_template) {
+      let template = data.risk_warning_template;
+
+      // Falls das Template keine Platzhalter enthält, ersetze vorhandene Prozentzahl
+      if (!template.includes('{percentage}')) {
+        template = template.replace(/\d+%/, '{percentage}%');
+      }
+
       // Cache aktualisieren
       riskWarningCache[cacheKey] = template;
       cacheExpiry = now + CACHE_DURATION;
-      
+
       // Prozentzahl einsetzen
       return template.replace('{percentage}', String(riskPercentage));
     }
@@ -84,7 +97,7 @@ export async function getRiskWarning(
 
   } catch (err) {
     console.error('Unexpected error in getRiskWarning:', err);
-    return `CFD trading involves high risk. ${riskPercentage}% of retail accounts lose money when trading CFDs with this provider.`;
+    return `CFD trading involves high . ${riskPercentage}% of retail accounts lose money when trading CFDs with this provider.`;
   }
 }
 
@@ -97,12 +110,29 @@ export function getRiskWarningSync(
   brokerType: string = 'cfd', 
   langCode: string = 'en'
 ): string {
+  // Debug-Logging hinzufügen
+  console.log('ORIGINAL INPUT:', riskPercentage);
+  
+  // Sicherheitsmaßnahme: Falls riskPercentage bereits den vollständigen Text enthält,
+  // versuche die Zahl zu extrahieren
+  if (typeof riskPercentage === 'string') {
+    // Prüfen, ob es bereits ein vollständiger Text ist
+    if (riskPercentage.includes('trading involves high risk') || riskPercentage.includes('lose money')) {
+      const match = riskPercentage.match(/(\d+)%/);
+      if (match) {
+        console.log('EXTRACTED NUMBER FROM TEXT:', match[1]);
+        riskPercentage = match[1];
+      }
+    }
+  }
+  
+  // Rest der Funktion bleibt gleich
   if (!riskPercentage) {
     return 'Trading involves risk. Your capital may be at risk.';
   }
 
   // Debug log
-  console.log('getRiskWarningSync called with:', { riskPercentage, brokerType, langCode });
+  console.log('USING VALUE:', { riskPercentage, brokerType, langCode });
 
   // Verwende nur Fallback-Texte bis die DB-Tabelle erstellt ist
   const fallbackTexts: { [key: string]: { [key: string]: string } } = {
@@ -122,7 +152,7 @@ export function getRiskWarningSync(
   const template = langTexts[brokerType] || langTexts.cfd;
   
   const result = template.replace('{percentage}', String(riskPercentage));
-  console.log('getRiskWarningSync result:', result);
+  console.log('FINAL RESULT:', result);
   
   return result;
 }

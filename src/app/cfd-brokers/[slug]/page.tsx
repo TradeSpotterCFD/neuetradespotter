@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import { Footer } from '@/components/Footer';
+import { getRiskWarningSync } from '@/lib/riskWarning';
 
 interface BrokerDetailPageProps {
   params: {
@@ -40,6 +41,10 @@ async function getBrokerBySlug(slug: string) {
     .eq('slug', slug)
     .eq('active', true)
     .single();
+
+  // Fügen Sie hier Debug-Ausgaben hinzu
+  console.log('DIRECT FROM DB - broker.risk_note:', broker?.risk_note);
+  console.log('DIRECT FROM DB - typeof broker.risk_note:', typeof broker?.risk_note);
 
   if (error || !broker) {
     return null;
@@ -187,15 +192,15 @@ export default async function BrokerDetailPage({ params }: BrokerDetailPageProps
   const currentTranslation = broker.translations?.en || {};
   const brokerName = broker.name || 'eToro';
 
-  // NEU: Risk Warning aus der Datenbank holen
-const riskWarning = await getRiskWarning(broker.risk_note, broker.broker_type, 'en');
-console.log('DEBUG: broker.risk_note:', broker.risk_note, 'riskWarning:', riskWarning); // DEBUG hinzufügen
+  // GEÄNDERT: Verwende direkt broker.risk_note aus der Datenbank
+  const riskWarning = getRiskWarningSync(broker.risk_note, 'cfd', 'en');
+  console.log('DEBUG: broker.risk_note:', broker.risk_note, 'riskWarning:', riskWarning);
 
   // Simple feature list - no complex processing
   const defaultFeatures = ['Mobile Compatible', 'Demo Account', 'Fast Payouts', 'Regulated and Secure'];
 
   // Basic data with fallbacks
- const brokerData = {
+  const brokerData = {
     name: brokerName,
     company: broker.company || 'eToro Group Ltd',
     headquarters: broker.headquarters || 'Tel Aviv, Limassol, London',
@@ -212,9 +217,12 @@ console.log('DEBUG: broker.risk_note:', broker.risk_note, 'riskWarning:', riskWa
     withdrawal_fees: broker.withdrawal_fees || '5 USD per payout',
     deposit_methods: broker.deposit_methods || 'Visa, MasterCard, Skrill, Neteller, Wire Transfer, Bitcoin (BTC), Litecoin (LTC)',
     website_url: broker.website_url || '#',
-    bonus: broker.bonus || 'Welcome Bonus Available',
-    risk_note: riskWarning // NEU: Verwende die Datenbank-Version
+ 
+
+    
   };
+
+  // Rest der Komponente bleibt gleich...
 
   return (
     <div className="min-h-screen bg-gray-50">
