@@ -17,6 +17,7 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 Minuten
  * @param langCode - Sprachcode (z.B. "en", "de", "es")
  * @returns Vollständiger Risk Warning Text
  */
+
 export async function getRiskWarning(
   riskPercentage: string | number | null | undefined, 
   brokerType: string = 'cfd', 
